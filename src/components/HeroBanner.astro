@@ -1,0 +1,63 @@
+---
+// Hero banner component using the image in the project `images/hero.webp` folder
+---
+
+<section class="hero-banner" role="img" aria-label="Hero banner">
+  <div class="hero-overlay">
+    <h1>Bienvenue sur XiJinPain</h1>
+    <p>Découvrez nos recettes et nos favoris — un monde de saveurs vous attend.</p>
+    <a class="cta" href="/recettes">Voir les recettes</a>
+  </div>
+</section>
+
+<style>
+  .hero-banner {
+    width: 100%;
+    min-height: 48vh;
+    background-image: url('/images/hero.webp');
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .hero-overlay {
+    max-width: 1100px;
+    width: 100%;
+    padding: 48px 24px;
+    color: white;
+    text-align: left;
+    backdrop-filter: brightness(0.6);
+    background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.35));
+    border-radius: 12px;
+  }
+
+  .hero-overlay h1 {
+    margin: 0 0 8px 0;
+    font-size: 2.25rem;
+    line-height: 1.05;
+  }
+
+  .hero-overlay p {
+    margin: 0 0 16px 0;
+    font-size: 1.05rem;
+    color: rgba(255,255,255,0.92);
+  }
+
+  .cta {
+    display: inline-block;
+    padding: 10px 16px;
+    background: linear-gradient(90deg,#ff7a59,#ff3d81);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 768px) {
+    .hero-overlay { padding: 28px 18px; }
+    .hero-overlay h1 { font-size: 1.5rem; }
+  }
+</style>

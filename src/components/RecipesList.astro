@@ -1,0 +1,131 @@
+---
+---
+
+<section class="recipes-list">
+  <div class="rl-header">
+    <div class="rl-title">
+      <h2>Recettes</h2>
+      <p class="rl-sub">Découvrez des idées simples et gourmandes</p>
+    </div>
+
+    <div class="rl-controls">
+      <label class="rl-search">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM10 14a4 4 0 110-8 4 4 0 010 8z"/></svg>
+        <input id="recipes-search" type="search" placeholder="Recherche (factice)" aria-label="Rechercher" />
+      </label>
+
+      <div class="rl-filter">
+        <label for="recipes-category" class="visually-hidden">Filtrer par catégorie</label>
+        <select id="recipes-category" aria-label="Catégorie">
+          <option value="">Toutes les catégories</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="recipes-grid" class="rl-grid" role="list" aria-live="polite">
+    <!-- cartes injectées ici -->
+  </div>
+
+  <div class="rl-pagination" aria-label="Pagination recettes">
+    <button id="prev-btn" class="btn" aria-label="Page précédente">‹</button>
+    <div class="page-info" id="page-info">1</div>
+    <button id="next-btn" class="btn" aria-label="Page suivante">›</button>
+  </div>
+</section>
+
+<style>
+  :root{
+    --bg:#ffffff; --muted:#6b7280; --card-bg:#fff; --accent:#f97316; --soft:#f3f4f6; --text:#111827;
+  }
+  .recipes-list{ padding:1.25rem 0; }
+  .rl-header{ display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center; margin-bottom:1rem }
+  .rl-title h2{ margin:0; font-size:1.4rem; color:var(--text) }
+  .rl-sub{ margin:0; color:var(--muted); font-size:0.95rem }
+
+  .rl-controls{ display:flex; gap:0.75rem; align-items:center; margin-left:auto }
+  .rl-search{ display:flex; align-items:center; gap:0.5rem; background:var(--soft); padding:0.35rem 0.5rem; border-radius:10px; border:1px solid transparent }
+  .rl-search:focus-within{ box-shadow:0 0 0 3px rgba(249,115,22,0.12); border-color:rgba(249,115,22,0.2) }
+  .rl-search .icon{ width:18px; height:18px; color:var(--muted) }
+  .rl-search input{ border:0; outline:0; background:transparent; padding:0.35rem 0; min-width:200px }
+
+  .rl-filter select{ padding:0.45rem 0.6rem; border-radius:8px; border:1px solid #e5e7eb; background:#fff }
+
+  .rl-grid{ display:grid; gap:1rem; grid-template-columns: repeat(3, 1fr); }
+  @media (max-width:1000px){ .rl-grid{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width:600px){ .rl-grid{ grid-template-columns: 1fr; } .rl-controls{ width:100%; justify-content:space-between } .rl-search input{ min-width:120px } }
+
+  .card{ display:flex; flex-direction:column; border-radius:12px; overflow:hidden; background:var(--card-bg); box-shadow:0 6px 18px rgba(15,23,42,0.06); transition:transform .18s ease, box-shadow .18s ease }
+  .card:hover{ transform:translateY(-6px); box-shadow:0 18px 40px rgba(15,23,42,0.09) }
+  .card-media{ position:relative; height:170px; background:linear-gradient(90deg,#f8fafc, #fff) }
+  .card-media img{ width:100%; height:100%; object-fit:cover; display:block }
+  .card-body{ padding:0.9rem 1rem 1.1rem; display:flex; flex-direction:column; gap:0.45rem }
+  .card-title{ margin:0; font-size:1.05rem; color:var(--text) }
+  .card-meta{ color:var(--muted); font-size:0.88rem }
+  .chip{ display:inline-block; padding:0.25rem 0.5rem; border-radius:999px; background:#fff6f1; color:var(--accent); font-size:0.78rem; border:1px solid rgba(249,115,22,0.08) }
+  .card-desc{ color:#374151; font-size:0.95rem }
+  .card-stats{ margin-top:auto; display:flex; gap:0.5rem; font-size:0.82rem; color:var(--muted) }
+
+  .rl-pagination{ display:flex; gap:0.5rem; align-items:center; justify-content:center; margin-top:1rem }
+  .btn{ background:#fff; border:1px solid #e6e6e6; padding:0.45rem 0.7rem; border-radius:8px; cursor:pointer }
+  .btn[disabled]{ opacity:0.45; cursor:not-allowed }
+  .page-info{ min-width:36px; text-align:center; font-weight:600 }
+
+  .visually-hidden{ position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap }
+</style>
+
+<script type="module">
+  const API_URL = 'https://gourmet.cours.quimerch.com/recipes';
+  const pageSize = 9; // 3x3
+  let page = 1; let lastPageReached = false; let currentCategory = '';
+
+  const grid = document.getElementById('recipes-grid');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const pageInfo = document.getElementById('page-info');
+  const categorySelect = document.getElementById('recipes-category');
+
+  async function fetchPage(p = 1, category = ''){
+    grid.innerHTML = '<p class="rl-loading">Chargement...</p>';
+    const offset = (p - 1) * pageSize;
+    const params = new URLSearchParams(); params.set('limit', String(pageSize)); params.set('offset', String(offset)); if(category) params.set('category', category);
+    const url = API_URL + '?' + params.toString();
+    try{
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if(!res.ok) throw new Error('Network response not ok');
+      const data = await res.json();
+      renderRecipes(data);
+      lastPageReached = data.length < pageSize;
+      updatePagination();
+      populateCategories(data);
+    }catch(err){ console.error('fetchPage error', err); grid.innerHTML = '<p class="rl-empty">Impossible de charger les recettes.</p>' }
+  }
+
+  function renderRecipes(items){
+    if(!items || items.length === 0){ grid.innerHTML = '<p class="rl-empty">Aucune recette trouvée.</p>'; return }
+    grid.innerHTML = items.map(r => (`
+      <article class="card" role="listitem" data-id="${escapeHtml(r.id)}">
+        <div class="card-media">${r.image_url ? `<img src="${escapeHtml(r.image_url)}" alt="${escapeHtml(r.name)}">` : `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted)">Image manquante</div>`}</div>
+        <div class="card-body">
+          <h3 class="card-title">${escapeHtml(r.name)}</h3>
+          <div class="card-meta"><span class="chip">${escapeHtml(r.category||'Autre')}</span> <span style="margin-left:6px">${r.servings||0} pers • ${r.cost||0}€</span></div>
+          <p class="card-desc">${escapeHtml((r.description||'').slice(0,160))}${(r.description&&r.description.length>160)?'…':''}</p>
+          <div class="card-stats"><span>Prépa ${r.prep_time||0}m</span><span>Cuisson ${r.cook_time||0}m</span><span>🔥 ${r.calories||0}</span></div>
+        </div>
+      </article>
+    `)).join('') }
+
+  function updatePagination(){ pageInfo.textContent = String(page); prevBtn.disabled = page<=1; nextBtn.disabled = lastPageReached }
+
+  function populateCategories(items){ const present = new Set(Array.from(categorySelect.options).map(o=>o.value)); items.forEach(r=>{ if(r.category && !present.has(r.category)){ const o=document.createElement('option'); o.value=r.category; o.textContent=r.category; categorySelect.appendChild(o); present.add(r.category) }}) }
+
+  prevBtn.addEventListener('click', ()=>{ if(page<=1) return; page--; fetchPage(page,currentCategory) })
+  nextBtn.addEventListener('click', ()=>{ if(lastPageReached) return; page++; fetchPage(page,currentCategory) })
+  categorySelect.addEventListener('change', e=>{ currentCategory = e.target.value || ''; page = 1; fetchPage(page,currentCategory) })
+  document.getElementById('recipes-search').addEventListener('input', ()=>{ /* fake for now */ })
+
+  function escapeHtml(str){ return String(str||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c] }) }
+
+  // initial load
+  fetchPage(page, currentCategory);
+</script>
