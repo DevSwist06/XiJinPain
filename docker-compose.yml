@@ -4,6 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime
-    image: xijinpain:latest
+    image: swist06/archiweb
     ports:
       - "80:80"
+    restart: unless-stopped
+    user: "nginx"
