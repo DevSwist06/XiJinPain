@@ -2,7 +2,7 @@
 
 ## 🚀 Project Structure
 
-Inside of XiJinPain project, you'll see the following folders and files:
+Inside of XiJinPain project, you'll see the following folders and files :
 
 ```text
 /
@@ -12,7 +12,7 @@ Inside of XiJinPain project, you'll see the following folders and files:
 │   ├── assets
 │   │   └── astro.svg
 │   ├── components
-│   │   └── Welcome.astro
+│   │   └── Welcome.astro 
 │   ├── layouts
 │   │   └── Layout.astro
 │   └── pages
