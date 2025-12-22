@@ -81,6 +81,9 @@ if (!recipe) {
 
 <Layout title={recipe.name}>
   <main class="recipe-detail">
+    <nav class="top-nav">
+      <a href="/" class="back-btn">← Retour aux recettes</a>
+    </nav>
     <div class="recipe-hero">
       <div class="hero-image">
         {recipe.image_url ? (
@@ -97,7 +100,7 @@ if (!recipe) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
             </svg>
-            <span class="favorite-count">{recipe.favorites || 1}</span>
+            <span class="favorite-count" data-slug={recipe.id}>{recipe.favorites || 1}</span>
           </button>
         </div>
         
@@ -255,6 +258,17 @@ if (!recipe) {
     margin: 0 auto;
     padding: 2rem 1rem;
   }
+  
+  .top-nav { 
+    display:flex; justify-content:flex-start; margin-bottom: 1rem; 
+  }
+  .back-btn { 
+    display:inline-flex; align-items:center; gap:.5rem; 
+    padding: .6rem 1rem; border-radius:12px; color:#fff; text-decoration:none; 
+    background: linear-gradient(135deg, #ff7a59, #ff3d81); 
+    box-shadow: 0 6px 16px rgba(255,61,129,.3); transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .back-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(255,61,129,.4) }
   
   .recipe-hero {
     display: grid;
@@ -807,7 +821,10 @@ if (!recipe) {
   }
 </style>
 
-<script>
+<script type="module">
+  const favoriteEl = document.querySelector('.favorite-count');
+  const slug = favoriteEl?.dataset.slug;
+
   // Toggle instructions accordion with animation
   document.addEventListener('DOMContentLoaded', () => {
     const toggleBtn = document.getElementById('instructions-toggle');
@@ -818,7 +835,6 @@ if (!recipe) {
         toggleBtn.classList.toggle('active');
         content.classList.toggle('active');
         
-        // Update button text
         const toggleText = toggleBtn.querySelector('.toggle-text');
         if (content.classList.contains('active')) {
           toggleText.textContent = 'Masquer les instructions';
@@ -826,6 +842,32 @@ if (!recipe) {
           toggleText.textContent = 'Cliquez pour voir les instructions';
         }
       });
+    }
+
+    // Live favorites via SSE
+    if ('EventSource' in window && favoriteEl && slug) {
+      try {
+        const es = new EventSource(`https://gourmet.cours.quimerch.com/recipes/${encodeURIComponent(slug)}/stars`);
+
+        const applyCount = (val) => {
+          if (!favoriteEl) return;
+          const num = Number(val);
+          if (!Number.isNaN(num)) favoriteEl.textContent = num;
+        };
+
+        es.addEventListener('count', (evt) => applyCount(evt.data));
+        es.onmessage = (evt) => applyCount(evt.data);
+        es.onerror = () => {
+          es.close();
+        };
+
+        window.addEventListener('beforeunload', () => es.close());
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) es.close();
+        });
+      } catch(err){
+        console.warn('SSE favorites connection failed', err);
+      }
     }
   });
 </script>
