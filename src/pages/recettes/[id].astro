@@ -5,8 +5,8 @@ export async function getStaticPaths() {
   const API_URL = 'https://gourmet.cours.quimerch.com';
   
   try {
-    // Fetch all recipes to generate static paths
-    const res = await fetch(`${API_URL}/recipes`, {
+    // Fetch all recipes to generate static paths (increase limit to cover entire catalog)
+    const res = await fetch(`${API_URL}/recipes?limit=1000`, {
       headers: { Accept: 'application/json' }
     });
     
@@ -77,6 +77,31 @@ try {
 if (!recipe) {
   return Astro.redirect('/recettes');
 }
+// Build responsive image URLs and low-res placeholder
+const withWidth = (url, w) => {
+  try {
+    const u = new URL(url);
+    u.searchParams.set('w', String(w));
+    return u.toString();
+  } catch {
+    return url;
+  }
+};
+const heroSrc320 = recipe.image_url ? withWidth(recipe.image_url, 320) : '';
+const heroSrc640 = recipe.image_url ? withWidth(recipe.image_url, 640) : '';
+const heroSrc800 = recipe.image_url ? withWidth(recipe.image_url, 800) : '';
+const heroSrc1200 = recipe.image_url ? withWidth(recipe.image_url, 1200) : '';
+let lowResUrl = '';
+if (recipe.image_url) {
+  try {
+    const u = new URL(recipe.image_url);
+    u.searchParams.set('w', '24');
+    u.searchParams.set('blur', '30');
+    lowResUrl = u.toString();
+  } catch {
+    lowResUrl = recipe.image_url;
+  }
+}
 ---
 
 <Layout title={recipe.name}>
@@ -87,7 +112,18 @@ if (!recipe) {
     <div class="recipe-hero">
       <div class="hero-image">
         {recipe.image_url ? (
-          <img src={recipe.image_url} alt={recipe.name} />
+          <img
+            src={heroSrc800}
+            srcset={`${heroSrc320} 320w, ${heroSrc640} 640w, ${heroSrc800} 800w, ${heroSrc1200} 1200w`}
+            sizes="(max-width:640px) 100vw, (max-width:1024px) 100vw, 50vw"
+            alt={recipe.name}
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+            width="800"
+            height="800"
+            onload="this.closest('.hero-image')?.classList.add('loaded')"
+            />
         ) : (
           <div class="no-image">Image non disponible</div>
         )}
@@ -266,7 +302,6 @@ if (!recipe) {
     display:inline-flex; align-items:center; gap:.5rem; 
     padding: .6rem 1rem; border-radius:12px; color:#fff; text-decoration:none; 
     background: linear-gradient(135deg, #ff7a59, #ff3d81); 
-    box-shadow: 0 6px 16px rgba(255,61,129,.3); transition: transform .2s ease, box-shadow .2s ease;
   }
   .back-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(255,61,129,.4) }
   
@@ -280,13 +315,28 @@ if (!recipe) {
     overflow: hidden;
     color: white;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    align-items: stretch;
   }
   
   .hero-image {
-    height: 550px;
+    height: 100%;
+    min-height: 420px;
     position: relative;
     overflow: hidden;
   }
+  .hero-image::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--lowres);
+    background-size: cover;
+    background-position: center;
+    filter: blur(20px);
+    transform: scale(1.05);
+    transition: opacity 0.4s ease;
+    opacity: 1;
+  }
+  .hero-image.loaded::before { opacity: 0; }
   
   .hero-image img {
     width: 100%;
@@ -790,9 +840,7 @@ if (!recipe) {
       grid-template-columns: 1fr;
     }
     
-    .hero-image {
-      height: 350px;
-    }
+    .hero-image { height: 280px; min-height: 280px; }
     
     .hero-content {
       padding: 2rem;
@@ -811,6 +859,7 @@ if (!recipe) {
     .recipe-detail {
       padding: 1rem 0.5rem;
     }
+    .hero-image { height: 220px; min-height: 220px; }
     
     .hero-header h1 {
       font-size: 1.75rem;
