@@ -5,7 +5,7 @@ import Layout from '../layouts/Layout.astro';
 <Layout title="Mon compte">
   <main class="me-page">
     <nav class="top-nav">
-      <a href="/" class="back-btn">← Retour aux recettes</a>
+      <a href="/" class="back-btn" title="Retour à la liste">← Retour aux recettes</a>
     </nav>
     <section class="me-card">
       <h1>Mon compte</h1>
@@ -30,6 +30,25 @@ import Layout from '../layouts/Layout.astro';
   .me-item{ background:#f9fafb; border-radius:12px; padding:1rem; border-left:4px solid transparent; background-image: linear-gradient(#f9fafb, #f9fafb), linear-gradient(135deg,#ff7a59,#ff3d81); background-origin: padding-box, border-box; background-clip: padding-box, border-box }
   .me-item h3{ margin:0 0 .25rem 0; font-size: .95rem; color:#6b7280 }
   .me-item p{ margin:0; font-weight:600; color:#111827 }
+
+  @media (max-width: 768px) {
+    .me-page{ padding: 1.5rem .75rem }
+    .me-card{ padding: 1rem }
+    .me-card h1{ font-size: 1.5rem }
+    .me-grid{ grid-template-columns: 1fr; gap: .75rem }
+    .me-item{ padding: .85rem }
+  }
+
+  @media (max-width: 480px) {
+    .me-page{ padding: 1rem .5rem }
+    .me-card{ padding: .75rem; border-radius: 12px }
+    .me-card h1{ font-size: 1.25rem }
+    .hint{ font-size: .85rem }
+    .back-btn{ padding: .5rem .75rem; font-size: .85rem }
+    .me-item{ padding: .75rem }
+    .me-item h3{ font-size: .85rem }
+    .me-item p{ font-size: .9rem }
+  }
 </style>
 
 <script type="module">
@@ -46,7 +65,21 @@ import Layout from '../layouts/Layout.astro';
     if(!token){ content.innerHTML = '<p>Vous n\'êtes pas connecté.</p>'; return }
     try{
       const res = await fetch(`${API_BASE}/me`,{ headers:{ 'Accept':'application/json, application/xml', Authorization:`Bearer ${token}` } });
-      if(!res.ok){ content.innerHTML = '<p>Impossible de récupérer votre profil.</p>'; return }
+      if(!res.ok){
+        if(res.status === 401 || res.status === 403){
+          // Token expired, clear it
+          localStorage.removeItem('authToken');
+          // Remove cookie as well
+          const isSecure = location.protocol === 'https:';
+          const attrs = ['path=/', 'SameSite=Lax', 'Max-Age=0'];
+          if(isSecure) attrs.push('Secure');
+          document.cookie = `authToken=; ${attrs.join('; ')}`;
+          content.innerHTML = '<p>Votre session a expiré. <a href="/">Retournez à l\'accueil</a> pour vous reconnecter.</p>';
+        } else {
+          content.innerHTML = '<p>Impossible de récupérer votre profil.</p>';
+        }
+        return;
+      }
       const data = await res.json();
       const created = data.created_at ? new Date(data.created_at).toLocaleString() : '—';
       content.innerHTML = `

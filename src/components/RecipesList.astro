@@ -1,7 +1,8 @@
 ---
 ---
 
-<section class="recipes-list">
+<section class="recipes-list" aria-labelledby="recipes-heading">
+  <h2 id="recipes-heading" class="rl-title">Recettes</h2>
   <div class="rl-header">
     <div class="rl-controls">
       <label class="rl-search">
@@ -14,6 +15,42 @@
         <select id="recipes-category" aria-label="Catégorie">
           <option value="">Toutes les catégories</option>
         </select>
+      </div>
+      <div class="rl-filter">
+        <label for="recipes-page-size" class="visually-hidden">Recettes par page</label>
+        <select id="recipes-page-size" aria-label="Recettes par page" title="Recettes par page">
+          <option value="12">12</option>
+          <option value="24">24</option>
+          <option value="48">48</option>
+        </select>
+      </div>
+
+      <div class="rl-filter">
+        <label for="recipes-prep" class="visually-hidden">Temps de préparation</label>
+        <select id="recipes-prep" aria-label="Temps de préparation" title="Temps de préparation">
+          <option value="">Prépa: Tous</option>
+          <option value="5">≤ 5 min</option>
+          <option value="10">≤ 10 min</option>
+          <option value="20">≤ 20 min</option>
+          <option value="30">≤ 30 min</option>
+        </select>
+      </div>
+
+      <div class="rl-filter">
+        <label for="recipes-cook" class="visually-hidden">Temps de cuisson</label>
+        <select id="recipes-cook" aria-label="Temps de cuisson" title="Temps de cuisson">
+          <option value="">Cuisson: Tous</option>
+          <option value="15">≤ 15 min</option>
+          <option value="30">≤ 30 min</option>
+          <option value="60">≤ 60 min</option>
+        </select>
+      </div>
+
+      <div class="rl-filter-checkbox">
+        <label for="recipes-healthy">
+          <input id="recipes-healthy" type="checkbox" aria-label="Recettes healthy" title="Recettes healthy" />
+          <span>Healthy</span>
+        </label>
       </div>
     </div>
   </div>
@@ -29,14 +66,21 @@
   <div id="end-message" class="rl-end-message" style="display: none;">
     <p>Vous avez atteint la fin des recettes 🍽️</p>
   </div>
+
+  <nav class="rl-pagination" aria-label="Pagination des recettes" style="display:none">
+    <button id="page-prev" class="pg-btn" aria-label="Page précédente">Précédent</button>
+    <div id="page-info" class="pg-info" aria-live="polite">Page 1 / 1</div>
+    <button id="page-next" class="pg-btn" aria-label="Page suivante">Suivant</button>
+  </nav>
 </section>
 
 <style is:global>
   /* Styles must be global because cards are injected via JS without Astro scope attributes */
   :root{
-    --bg:#ffffff; --muted:#6b7280; --card-bg:#fff; --accent:#f97316; --soft:#f3f4f6; --text:#111827;
+    --bg:#ffffff; --muted:#4b5563; --card-bg:#fff; --accent:#b32653; --accent-strong:#8b1c40; --soft:#f3f4f6; --text:#0f172a;
   }
   .recipes-list{ padding:2rem 1rem; max-width:1400px; margin:0 auto; }
+  .rl-title{ margin:0 0 1rem; font-size:1.6rem; color:var(--text); line-height:1.2; }
   .rl-header{ display:flex; justify-content:center; align-items:center; margin-bottom:2.5rem; }
 
   .rl-controls{ display:flex; gap:1rem; align-items:center; }
@@ -48,9 +92,16 @@
   .rl-search input::placeholder{ color:rgba(255,255,255,0.85); }
   .rl-search input::-webkit-search-cancel-button{ filter:invert(1); }
 
-  .rl-filter select{ padding:0.75rem 1.25rem; border-radius:12px; border:2px solid #ff7a59; background:white; color:#ff3d81; font-weight:600; font-size:1rem; cursor:pointer; transition:all 0.3s ease; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
-  .rl-filter select:hover{ border-color:#ff3d81; box-shadow:0 4px 12px rgba(255,61,129,0.2); transform:translateY(-2px); }
-  .rl-filter select:focus{ outline:none; box-shadow:0 0 0 4px rgba(255,61,129,0.2); }
+  .rl-filter select{ padding:0.75rem 1.25rem; border-radius:12px; border:2px solid var(--accent); background:white; color:var(--accent-strong); font-weight:600; font-size:1rem; cursor:pointer; transition:all 0.3s ease; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+  .rl-filter select:hover{ border-color:var(--accent-strong); box-shadow:0 4px 12px rgba(179,38,83,0.2); transform:translateY(-2px); }
+  .rl-filter select:focus{ outline:none; box-shadow:0 0 0 4px rgba(179,38,83,0.2); }
+
+  .rl-filter-checkbox{ display:flex; align-items:center; }
+  .rl-filter-checkbox label{ display:flex; align-items:center; gap:0.5rem; padding:0.75rem 1.25rem; border-radius:12px; border:2px solid var(--accent); background:white; color:var(--accent-strong); font-weight:600; font-size:1rem; cursor:pointer; transition:all 0.3s ease; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+  .rl-filter-checkbox label:hover{ border-color:var(--accent-strong); box-shadow:0 4px 12px rgba(179,38,83,0.2); transform:translateY(-2px); }
+  .rl-filter-checkbox input{ cursor:pointer; width:18px; height:18px; }
+  .rl-filter-checkbox input:focus{ outline:none; }
+  .rl-filter-checkbox label:has(input:focus){ box-shadow:0 0 0 4px rgba(255,61,129,0.2); }
 
   .rl-grid{ display:grid; gap:1.5rem; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
   @media (max-width:1000px){ .rl-grid{ gap:1.25rem; } }
@@ -63,32 +114,70 @@
   .card-body{ padding:0.9rem 1rem 1.1rem; display:flex; flex-direction:column; gap:0.45rem }
   .card-title{ margin:0; font-size:1.05rem; color:var(--text) }
   .card-meta{ color:var(--muted); font-size:0.88rem }
-  .chip{ display:inline-block; padding:0.25rem 0.5rem; border-radius:999px; background:#fff6f1; color:var(--accent); font-size:0.78rem; border:1px solid rgba(249,115,22,0.08) }
+  .chip{ display:inline-block; padding:0.25rem 0.5rem; border-radius:999px; background:#fff1f4; color:var(--accent-strong); font-size:0.78rem; border:1px solid rgba(179,38,83,0.25) }
   .card-desc{ color:#374151; font-size:0.95rem }
   .card-stats{ margin-top:auto; display:flex; gap:0.5rem; font-size:0.82rem; color:var(--muted) }
 
   .rl-loading-indicator, .rl-end-message{ text-align:center; padding:2rem 0; color:var(--muted) }
   .rl-loading-indicator p, .rl-end-message p{ margin:0 }
 
+  .rl-pagination{ display:flex; justify-content:center; align-items:center; gap:.75rem; margin:1rem 0 0 }
+  .pg-btn{ padding:.5rem .9rem; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-weight:600 }
+  .pg-btn[disabled]{ opacity:.5; cursor:not-allowed }
+  .pg-info{ color:var(--muted); font-weight:600 }
+
   .visually-hidden{ position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap }
+  /* Back to top button */
+  .back-top-btn{ position:fixed; right:16px; bottom:16px; padding:.6rem .8rem; border-radius:999px; border:2px solid #ff7a59; background:#fff; color:#ff3d81; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(0,0,0,.12); z-index:9999 }
+  .back-top-btn:hover{ transform: translateY(-2px); box-shadow:0 12px 28px rgba(0,0,0,.16) }
 </style>
 
 <script type="module">
   const API_URL = 'https://gourmet.cours.quimerch.com/recipes';
-  const pageSize = 1000;
+  let pageSize = 12;
   let page = 1;
   let isLoading = false;
   let hasMoreRecipes = true;
   let currentCategory = '';
   let currentSearch = '';
+  let currentPrepMax = '';
+  let currentCookMax = '';
+  let currentHealthyOnly = false;
+  let healthyRecipeIds = new Set(); // Stocker les IDs des recettes healthy
   let searchTimeout = null;
   let allRecipes = []; // Pour le filtrage côté client
+  let filteredRecipes = []; // Pour la pagination
 
   const grid = document.getElementById('recipes-grid');
   const loadingIndicator = document.getElementById('loading-indicator');
   const endMessage = document.getElementById('end-message');
   const categorySelect = document.getElementById('recipes-category');
   const searchInput = document.getElementById('recipes-search');
+  const pageSizeSelect = document.getElementById('recipes-page-size');
+  const prepSelect = document.getElementById('recipes-prep');
+  const cookSelect = document.getElementById('recipes-cook');
+  const healthyCheckbox = document.getElementById('recipes-healthy');
+  const pg = document.querySelector('.rl-pagination');
+  const pagePrev = document.getElementById('page-prev');
+  const pageNext = document.getElementById('page-next');
+  const pageInfo = document.getElementById('page-info');
+
+  async function fetchHealthyRecipes() {
+    try {
+      const res = await fetch('https://gourmet.cours.quimerch.com/recipes?healthy=true', {
+        headers: { Accept: 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Récupérer les IDs des recettes healthy
+        if (Array.isArray(data)) {
+          healthyRecipeIds = new Set(data.map(r => r.id).filter(id => id));
+        }
+      }
+    } catch(err) {
+      console.warn('Error fetching healthy recipes:', err);
+    }
+  }
 
   async function fetchAllRecipes() {
     try {
@@ -128,10 +217,31 @@
                (r.category && r.category.toLowerCase().includes(searchLower));
       });
     }
+    // Filtre par temps de préparation
+    if (currentPrepMax) {
+      const max = Number(currentPrepMax);
+      filtered = filtered.filter(r => {
+        const val = Number(r.prep_time);
+        return Number.isFinite(val) && val <= max;
+      });
+    }
+    // Filtre par temps de cuisson
+    if (currentCookMax) {
+      const max = Number(currentCookMax);
+      filtered = filtered.filter(r => {
+        const val = Number(r.cook_time);
+        return Number.isFinite(val) && val <= max;
+      });
+    }
+    // Filtre par healthy
+    if (currentHealthyOnly) {
+      filtered = filtered.filter(r => healthyRecipeIds.has(r.id));
+    }
     
     // Pagination côté client
+    filteredRecipes = filtered;
     page = 1;
-    displayRecipes(filtered);
+    renderPage();
     
     isLoading = false;
     loadingIndicator.style.display = 'none';
@@ -141,11 +251,11 @@
     if (!recipes || recipes.length === 0) {
       grid.innerHTML = '<p class="rl-empty">Aucune recette trouvée.</p>';
       endMessage.style.display = 'none';
+      if(pg) pg.style.display = 'none';
       hasMoreRecipes = false;
       return;
     }
     
-    // Afficher toutes les recettes filtrées (ou implémenter une pagination)
     const html = recipes.map(r => (`
       <a href="/recettes/${escapeHtml(r.id)}" class="card" role="listitem" data-id="${escapeHtml(r.id)}">
         <div class="card-media">${r.image_url ? `<img src="${escapeHtml(r.image_url)}" alt="${escapeHtml(r.name)}">` : `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted)">Image manquante</div>`}</div>
@@ -160,10 +270,22 @@
     
     grid.innerHTML = html;
     
-    // Afficher le message de fin
-    endMessage.style.display = 'block';
-    endMessage.innerHTML = `<p>${recipes.length} recette${recipes.length > 1 ? 's' : ''} trouvée${recipes.length > 1 ? 's' : ''}</p>`;
-    hasMoreRecipes = false;
+    // Afficher/synchroniser pagination
+    if(pg){
+      pg.style.display = 'flex';
+      const total = Math.max(1, Math.ceil(filteredRecipes.length / pageSize));
+      pageInfo.textContent = `Page ${page} / ${total}`;
+      pagePrev.disabled = page <= 1;
+      pageNext.disabled = page >= total;
+    }
+    endMessage.style.display = 'none';
+    hasMoreRecipes = page < Math.ceil(filteredRecipes.length / pageSize);
+  }
+
+  function renderPage(){
+    const start = (page - 1) * pageSize;
+    const items = filteredRecipes.slice(start, start + pageSize);
+    displayRecipes(items);
   }
 
   function populateCategories(recipes){
@@ -200,13 +322,61 @@
     }, 300); // 300ms de délai
   });
 
+  // Pagination controls
+  if(pagePrev){
+    pagePrev.addEventListener('click', ()=>{ if(page>1){ page--; renderPage(); } });
+  }
+  if(pageNext){
+    pageNext.addEventListener('click', ()=>{
+      const total = Math.ceil(filteredRecipes.length / pageSize);
+      if(page < total){ page++; renderPage(); }
+    });
+  }
+
+  // Page size control
+  if(pageSizeSelect){
+    pageSizeSelect.value = String(pageSize);
+    pageSizeSelect.addEventListener('change', (e)=>{
+      const val = Number(e.target.value);
+      pageSize = Number.isFinite(val) && val > 0 ? val : 12;
+      page = 1;
+      renderPage();
+    });
+  }
+
+  // Prep/cook/difficulty filters
+  prepSelect?.addEventListener('change', e => { currentPrepMax = e.target.value || ''; applyFilters(); });
+  cookSelect?.addEventListener('change', e => { currentCookMax = e.target.value || ''; applyFilters(); });
+  // Remove difficulty event listener
+  healthyCheckbox?.addEventListener('change', e => { currentHealthyOnly = e.target.checked; applyFilters(); });
+
+  // Back to top button
+  const backTop = document.createElement('button');
+  backTop.id = 'back-to-top';
+  backTop.className = 'back-top-btn';
+  backTop.type = 'button';
+  backTop.title = 'Retour en haut';
+  backTop.innerHTML = '↑ Haut';
+  document.body.appendChild(backTop);
+
+  const onScroll = () => {
+    if (window.scrollY > 400) {
+      backTop.style.display = 'inline-flex';
+    } else {
+      backTop.style.display = 'none';
+    }
+  };
+  window.addEventListener('scroll', onScroll);
+  backTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  backTop.style.display = 'none';
+
   function escapeHtml(str){
     return String(str||'').replace(/[&<>"']/g, function(c){
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]
     })
   }
 
-  // Initial load - charger toutes les recettes
-  fetchAllRecipes();
+  // Initial load - charger les recettes healthy et toutes les recettes
+  fetchHealthyRecipes().then(() => fetchAllRecipes());
 </script>
 

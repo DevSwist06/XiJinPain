@@ -6,7 +6,7 @@ export async function getStaticPaths() {
   
   try {
     // Fetch all recipes to generate static paths
-    const res = await fetch(`${API_URL}/recipes?limit=1000`, {
+    const res = await fetch(`${API_URL}/recipes`, {
       headers: { Accept: 'application/json' }
     });
     
@@ -96,7 +96,7 @@ if (!recipe) {
       <div class="hero-content">
         <div class="hero-header">
           <h1>{recipe.name}</h1>
-          <button class="favorite-btn" aria-label="Ajouter aux favoris">
+          <button class="favorite-btn" title="Ajouter aux favoris" aria-label="Ajouter aux favoris">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
             </svg>
@@ -106,7 +106,7 @@ if (!recipe) {
         
         <div class="rating">
           {[...Array(5)].map((_, i) => (
-            <span class={`star ${i < Math.floor(recipe.rating || 3.5) ? 'filled' : ''}`}>★</span>
+            <span class={`star ${i < Math.min(recipe.favorites || 0, 5) ? 'filled' : ''}`}>★</span>
           ))}
         </div>
         
@@ -353,6 +353,11 @@ if (!recipe) {
     width: 24px;
     height: 24px;
   }
+
+  .favorite-btn.active svg path {
+    fill: #fff;
+    stroke: none;
+  }
   
   .favorite-count {
     font-weight: 600;
@@ -581,7 +586,7 @@ if (!recipe) {
   }
   
   .toggle-text {
-    font-family: 'Poppins', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, Arial, sans-serif;
     letter-spacing: 0.5px;
   }
   
@@ -822,8 +827,14 @@ if (!recipe) {
 </style>
 
 <script type="module">
+  const API_BASE = 'https://gourmet.cours.quimerch.com';
   const favoriteEl = document.querySelector('.favorite-count');
+  const favBtn = document.querySelector('.favorite-btn');
+  const heartPath = favBtn?.querySelector('path');
   const slug = favoriteEl?.dataset.slug;
+  let username = '';
+  let isFavorite = false;
+  let isUpdatingFav = false;
 
   // Toggle instructions accordion with animation
   document.addEventListener('DOMContentLoaded', () => {
@@ -852,7 +863,11 @@ if (!recipe) {
         const applyCount = (val) => {
           if (!favoriteEl) return;
           const num = Number(val);
-          if (!Number.isNaN(num)) favoriteEl.textContent = num;
+          if (!Number.isNaN(num)) {
+            favoriteEl.textContent = num;
+            // Mettre à jour les étoiles aussi
+            updateStars(num);
+          }
         };
 
         es.addEventListener('count', (evt) => applyCount(evt.data));
@@ -869,5 +884,123 @@ if (!recipe) {
         console.warn('SSE favorites connection failed', err);
       }
     }
+
+    // Favorite toggle
+    if (favBtn && slug) {
+      initFavoriteState();
+      favBtn.addEventListener('click', onToggleFavorite);
+    }
   });
+
+  function getToken(){
+    const match = document.cookie.match(/(?:^|; )authToken=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
+  function updateStars(count) {
+    const stars = document.querySelectorAll('.star');
+    const numStars = Math.min(count || 0, 5);
+    stars.forEach((star, i) => {
+      if (i < numStars) {
+        star.classList.add('filled');
+      } else {
+        star.classList.remove('filled');
+      }
+    });
+  }
+
+  function clearExpiredToken(){
+    const isSecure = location.protocol === 'https:';
+    const attrs = ['path=/', 'SameSite=Lax', 'Max-Age=0'];
+    if(isSecure) attrs.push('Secure');
+    document.cookie = `authToken=; ${attrs.join('; ')}`;
+  }
+
+  function setFavoriteUI(state){
+    isFavorite = state;
+    if(favBtn){ favBtn.classList.toggle('active', state); favBtn.setAttribute('aria-pressed', String(state)); }
+    if(heartPath){
+      heartPath.style.fill = state ? '#fff' : 'none';
+      heartPath.style.stroke = state ? 'none' : 'currentColor';
+    }
+  }
+
+  function bumpCount(delta){
+    if(!favoriteEl) return;
+    const num = Number(favoriteEl.textContent || '0');
+    const next = num + delta;
+    if(!Number.isNaN(next) && next >= 0) favoriteEl.textContent = next;
+  }
+
+  async function fetchUsername(){
+    const token = getToken();
+    if(!token) return '';
+    const res = await fetch(`${API_BASE}/me`, { headers:{ 'Accept':'application/json, application/xml', Authorization:`Bearer ${token}` } });
+    if(!res.ok){
+      if(res.status === 401 || res.status === 403){ clearExpiredToken(); }
+      return '';
+    }
+    const data = await res.json();
+    return data.username || '';
+  }
+
+  async function fetchIsFavorite(){
+    const token = getToken();
+    if(!token || !slug) return false;
+    const res = await fetch(`${API_BASE}/favorites`, { headers:{ 'Accept':'application/json, application/xml', Authorization:`Bearer ${token}` } });
+    if(!res.ok){
+      if(res.status === 401 || res.status === 403){ clearExpiredToken(); }
+      return false;
+    }
+    const data = await res.json();
+    if(!Array.isArray(data)) return false;
+    return data.some(item => item?.recipe?.id === slug);
+  }
+
+  async function initFavoriteState(){
+    try{
+      username = await fetchUsername();
+      const state = await fetchIsFavorite();
+      setFavoriteUI(state);
+    }catch(err){ console.warn('Init favorite failed', err); }
+  }
+
+  async function onToggleFavorite(e){
+    e.preventDefault();
+    if(isUpdatingFav) return;
+    const token = getToken();
+    if(!token){ alert('Connectez-vous pour gérer vos favoris.'); return; }
+    if(!username){ username = await fetchUsername(); }
+    if(!username){ alert('Impossible de récupérer votre profil.'); return; }
+    if(!slug) return;
+
+    isUpdatingFav = true;
+    try{
+      if(!isFavorite){
+        const res = await fetch(`${API_BASE}/users/${encodeURIComponent(username)}/favorites?recipeID=${encodeURIComponent(slug)}`, {
+          method:'POST',
+          headers:{
+            'Accept':'application/json, application/xml',
+            'Content-Type':'application/json',
+            Authorization:`Bearer ${token}`
+          }
+        });
+        if(res.ok){ setFavoriteUI(true); bumpCount(1); }
+        else if(res.status === 401 || res.status === 403){ clearExpiredToken(); alert('Votre session a expiré. Reconnectez-vous.'); }
+      } else {
+        const res = await fetch(`${API_BASE}/users/${encodeURIComponent(username)}/favorites?recipeID=${encodeURIComponent(slug)}`, {
+          method:'DELETE',
+          headers:{
+            'Accept':'application/json, application/xml',
+            Authorization:`Bearer ${token}`
+          }
+        });
+        if(res.ok){ setFavoriteUI(false); bumpCount(-1); }
+        else if(res.status === 401 || res.status === 403){ clearExpiredToken(); alert('Votre session a expiré. Reconnectez-vous.'); }
+      }
+    } catch(err){ console.warn('Favorite toggle failed', err); }
+    finally {
+      isUpdatingFav = false;
+    }
+  }
 </script>

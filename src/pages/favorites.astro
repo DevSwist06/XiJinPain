@@ -1,0 +1,162 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Mes favoris">
+	<main class="favorites-page">
+		<nav class="top-nav">
+			<a href="/" class="back-btn" title="Retour à la liste">← Retour aux recettes</a>
+		</nav>
+
+		<section class="card">
+			<div class="card-header">
+				<div>
+					<p class="eyebrow">Vos coups de cœur</p>
+					<h1>Mes recettes favorites</h1>
+				</div>
+				<div class="actions">
+					<label class="search" aria-label="Rechercher dans vos favoris" title="Rechercher un favori">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						<input id="fav-search" type="search" placeholder="Rechercher une recette" />
+					</label>
+					<button id="reload-btn" class="ghost" title="Recharger la liste">Rafraîchir</button>
+				</div>
+			</div>
+
+			<div id="fav-content" class="fav-content" aria-live="polite">
+				<p>Chargement…</p>
+			</div>
+		</section>
+	</main>
+</Layout>
+
+<style>
+	.favorites-page{ max-width:1100px; margin:0 auto; padding:2rem 1rem; display:flex; flex-direction:column; gap:1rem }
+	.top-nav{ display:flex; justify-content:flex-start }
+	.back-btn{ display:inline-flex; align-items:center; gap:.5rem; padding:.6rem 1rem; border-radius:12px; color:#fff; text-decoration:none; background: linear-gradient(135deg,#ff7a59,#ff3d81); box-shadow:0 6px 16px rgba(255,61,129,.3); transition: transform .2s ease, box-shadow .2s ease; font-weight:600 }
+	.back-btn:hover{ transform: translateY(-2px); box-shadow:0 10px 24px rgba(255,61,129,.4) }
+	.card{ background:#fff; border-radius:16px; box-shadow:0 10px 32px rgba(0,0,0,.08); border:1px solid #f1f5f9; padding:1.5rem }
+	.card-header{ display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap }
+	.actions{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap }
+	.eyebrow{ margin:0; text-transform:uppercase; letter-spacing:.08em; font-size:.8rem; color:#6b7280; font-weight:700 }
+	h1{ margin:.15rem 0 .35rem 0; font-size:1.75rem }
+	.hint{ margin:0; color:#6b7280 }
+	.search{ display:flex; align-items:center; gap:.4rem; padding:.4rem .6rem; border:1px solid #e5e7eb; border-radius:10px; background:#f8fafc; color:#6b7280 }
+	.search svg{ width:18px; height:18px }
+	.search input{ border:none; background:transparent; outline:none; min-width:200px; font-size:.95rem; color:#0f172a }
+	.search input::placeholder{ color:#94a3b8 }
+	.ghost{ border:1px solid #e5e7eb; background:#fff; padding:.55rem 1rem; border-radius:10px; cursor:pointer; font-weight:600; color:#111827 }
+	.ghost:hover{ box-shadow:0 4px 12px rgba(0,0,0,.08); transform: translateY(-1px) }
+	.fav-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:0.75rem; margin-top:1rem }
+	.fav-card{ display:block; background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; text-decoration:none; color:#111827; transition: transform .15s ease, box-shadow .15s ease }
+	.fav-card:hover{ transform: translateY(-2px); box-shadow:0 10px 24px rgba(0,0,0,.08) }
+	.fav-thumb{ height:140px; background:linear-gradient(135deg,#667eea,#764ba2); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:1rem }
+	.fav-thumb img{ width:100%; height:100%; object-fit:cover }
+	.fav-body{ padding:0.65rem 0.8rem 0.75rem; display:flex; flex-direction:column; gap:.1rem }
+	.fav-title{ font-size:1.02rem; margin:0; font-weight:800; line-height:1.3; letter-spacing:.01em; background:linear-gradient(135deg,#111827,#ff3d81); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+	.empty{ padding:1rem 0; color:#6b7280 }
+	.error{ color:#ef4444 }
+
+	@media (max-width: 768px) {
+		.favorites-page{ padding: 1.5rem .75rem }
+		.card{ padding: 1rem }
+		.card-header{ flex-direction: column; align-items: flex-start }
+		h1{ font-size: 1.5rem }
+		.actions{ width: 100%; justify-content: space-between }
+		.search{ flex: 1; min-width: 0 }
+		.search input{ min-width: 0; width: 100% }
+		.fav-grid{ grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem }
+		.fav-thumb{ height: 120px }
+		.fav-body{ padding: .5rem .6rem }
+		.fav-title{ font-size: .95rem }
+	}
+
+	@media (max-width: 480px) {
+		.favorites-page{ padding: 1rem .5rem }
+		.card{ padding: .75rem; border-radius: 12px }
+		h1{ font-size: 1.25rem }
+		.eyebrow{ font-size: .75rem }
+		.back-btn{ padding: .5rem .75rem; font-size: .85rem }
+		.ghost{ padding: .45rem .75rem; font-size: .85rem }
+		.fav-grid{ grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) }
+		.fav-thumb{ height: 100px }
+		.fav-title{ font-size: .9rem }
+	}
+</style>
+
+<script type="module">
+	const API_BASE = 'https://gourmet.cours.quimerch.com';
+	const content = document.getElementById('fav-content');
+	const reloadBtn = document.getElementById('reload-btn');
+	const searchInput = document.getElementById('fav-search');
+	let allFavorites = [];
+
+	function getToken(){
+		const match = document.cookie.match(/(?:^|; )authToken=([^;]*)/);
+		return match ? decodeURIComponent(match[1]) : '';
+	}
+
+	function render(items){
+		if(!items || items.length === 0){
+			content.innerHTML = '<p class="empty">Aucun favori pour le moment.</p>';
+			return;
+		}
+			const cards = items.map(({recipe}) => {
+				if(!recipe) return '';
+				const name = escapeHtml(recipe.name || 'Recette');
+				const thumbContent = recipe.image_url ? `<img src="${escapeHtml(recipe.image_url)}" alt="${name}">` : name.slice(0,1);
+				return `
+					<a class="fav-card" href="/recettes/${escapeHtml(recipe.id)}">
+						<div class="fav-thumb">${thumbContent}</div>
+						<div class="fav-body">
+							<p class="fav-title">${name}</p>
+						</div>
+					</a>`;
+			}).join('');
+		content.innerHTML = `<div class="fav-grid">${cards}</div>`;
+	}
+
+	async function loadFavorites(){
+		const token = getToken();
+		if(!token){ content.innerHTML = '<p class="error">Vous devez être connecté.</p>'; return; }
+		content.innerHTML = '<p>Chargement…</p>';
+		try{
+			const res = await fetch(`${API_BASE}/favorites`,{ headers:{ 'Accept':'application/json, application/xml', Authorization:`Bearer ${token}` } });
+      if(!res.ok){
+        if(res.status === 401 || res.status === 403){
+          // Token expired
+          const isSecure = location.protocol === 'https:';
+          const attrs = ['path=/', 'SameSite=Lax', 'Max-Age=0'];
+          if(isSecure) attrs.push('Secure');
+          document.cookie = `authToken=; ${attrs.join('; ')}`;
+          content.innerHTML = '<p class="error">Votre session a expiré. <a href="/">Retournez à l\'accueil</a> pour vous reconnecter.</p>';
+        } else {
+          content.innerHTML = '<p class="error">Impossible de charger vos favoris.</p>';
+        }
+        return;
+      }
+			const data = await res.json();
+			allFavorites = data || [];
+			render(allFavorites);
+		} catch(e){
+			content.innerHTML = '<p class="error">Erreur lors du chargement.</p>';
+		}
+	}
+
+		function applyFilters(){
+			if(!content) return;
+			const term = (searchInput?.value || '').trim().toLowerCase();
+			const filtered = term
+				? allFavorites.filter(({recipe}) => (recipe?.name || '').toLowerCase().includes(term))
+				: allFavorites;
+			render(filtered);
+		}
+
+	function escapeHtml(str){ return String(str||'').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+
+	reloadBtn.addEventListener('click', loadFavorites);
+	if(searchInput){
+		searchInput.addEventListener('input', applyFilters);
+	}
+	loadFavorites();
+</script>

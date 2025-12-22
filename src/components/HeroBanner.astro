@@ -46,7 +46,16 @@
   }
 
   @media (max-width: 768px) {
-    .hero-overlay { padding: 28px 18px; }
-    .hero-overlay h1 { font-size: 1.5rem; }
+    .hero-banner { min-height: 40vh }
+    .hero-overlay { padding: 32px 20px; max-width: 95% }
+    .hero-overlay h1 { font-size: 1.75rem }
+    .hero-overlay p { font-size: 1rem }
+  }
+
+  @media (max-width: 480px) {
+    .hero-banner { min-height: 35vh }
+    .hero-overlay { padding: 24px 16px; border-radius: 8px }
+    .hero-overlay h1 { font-size: 1.5rem }
+    .hero-overlay p { font-size: .9rem }
   }
 </style>
