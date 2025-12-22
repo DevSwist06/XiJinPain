@@ -1,0 +1,831 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+export async function getStaticPaths() {
+  const API_URL = 'https://gourmet.cours.quimerch.com';
+  
+  try {
+    // Fetch all recipes to generate static paths
+    const res = await fetch(`${API_URL}/recipes?limit=1000`, {
+      headers: { Accept: 'application/json' }
+    });
+    
+    if (res.ok) {
+      const recipes = await res.json();
+      return recipes.map(recipe => ({
+        params: { id: String(recipe.id) }
+      }));
+    }
+  } catch (err) {
+    console.error('Error fetching recipes for static paths:', err);
+  }
+  
+  return [];
+}
+
+const { id } = Astro.params;
+const API_URL = 'https://gourmet.cours.quimerch.com';
+
+// Fetch recipe details
+let recipe = null;
+let ingredients = [];
+let relatedRecipes = [];
+let error = null;
+
+try {
+  const recipeRes = await fetch(`${API_URL}/recipes/${id}`, {
+    headers: { Accept: 'application/json' }
+  });
+  
+  if (recipeRes.ok) {
+    recipe = await recipeRes.json();
+    
+    // Fetch ingredients for this recipe
+    try {
+      const ingredientsRes = await fetch(`${API_URL}/recipes/${id}/ingredients`, {
+        headers: { Accept: 'application/json' }
+      });
+      if (ingredientsRes.ok) {
+        ingredients = await ingredientsRes.json();
+      }
+    } catch (err) {
+      console.error('Error fetching ingredients:', err);
+    }
+    
+    // Fetch related recipes (same category)
+    if (recipe.category) {
+      try {
+        const relatedRes = await fetch(`${API_URL}/recipes?category=${recipe.category}&limit=4`, {
+          headers: { Accept: 'application/json' }
+        });
+        if (relatedRes.ok) {
+          const allRelated = await relatedRes.json();
+          relatedRecipes = allRelated.filter(r => r.id !== recipe.id).slice(0, 3);
+        }
+      } catch (err) {
+        console.error('Error fetching related recipes:', err);
+      }
+    }
+  } else {
+    error = 'Recette non trouvée';
+  }
+} catch (err) {
+  console.error('Error fetching recipe:', err);
+  error = 'Erreur lors du chargement de la recette';
+}
+
+if (!recipe) {
+  return Astro.redirect('/recettes');
+}
+---
+
+<Layout title={recipe.name}>
+  <main class="recipe-detail">
+    <div class="recipe-hero">
+      <div class="hero-image">
+        {recipe.image_url ? (
+          <img src={recipe.image_url} alt={recipe.name} />
+        ) : (
+          <div class="no-image">Image non disponible</div>
+        )}
+      </div>
+      
+      <div class="hero-content">
+        <div class="hero-header">
+          <h1>{recipe.name}</h1>
+          <button class="favorite-btn" aria-label="Ajouter aux favoris">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span class="favorite-count">{recipe.favorites || 1}</span>
+          </button>
+        </div>
+        
+        <div class="rating">
+          {[...Array(5)].map((_, i) => (
+            <span class={`star ${i < Math.floor(recipe.rating || 3.5) ? 'filled' : ''}`}>★</span>
+          ))}
+        </div>
+        
+        <p class="author">by {recipe.author || 'admin'}</p>
+        
+        <div class="tags">
+          {recipe.category && (
+            <span class="tag category">{recipe.category}</span>
+          )}
+          {recipe.meal_type && recipe.meal_type.split(',').map(tag => (
+            <span class="tag">{tag.trim()}</span>
+          ))}
+        </div>
+        
+        <div class="stats-grid">
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <div>
+              <span class="stat-label">Preparation:</span>
+              <span class="stat-value">{recipe.prep_time || 0} min</span>
+            </div>
+          </div>
+          
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
+              <polyline points="17 2 12 7 7 2"/>
+            </svg>
+            <div>
+              <span class="stat-label">Cooking:</span>
+              <span class="stat-value">{recipe.cook_time || 0} min</span>
+            </div>
+          </div>
+          
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <div>
+              <span class="stat-label">Calories:</span>
+              <span class="stat-value">{recipe.calories || 0} kcal</span>
+            </div>
+          </div>
+          
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            </svg>
+            <div>
+              <span class="stat-label">Difficulty:</span>
+              <span class="stat-value">{recipe.difficulty || 'Medium'}</span>
+            </div>
+          </div>
+        </div>
+        
+        {recipe.description && (
+          <p class="description">{recipe.description}</p>
+        )}
+      </div>
+    </div>
+    
+    <div class="recipe-content">
+      <div class="main-content">
+        <section class="ingredients-section">
+          <h2>Ingredients</h2>
+          <p class="servings">for {recipe.servings || 4}</p>
+          
+          {ingredients.length > 0 ? (
+            <ul class="ingredients-list">
+              {ingredients.map(ing => (
+                <li>
+                  <span class="ingredient-name">{ing.name}</span>
+                  <span class="ingredient-amount">
+                    {ing.quantity} {ing.unit}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p class="no-data">Aucun ingrédient disponible</p>
+          )}
+        </section>
+        
+        <section class="instructions-section">
+          <h2>Instructions</h2>
+          
+          {recipe.instructions ? (
+            <div class="instructions-accordion">
+              <button class="instructions-toggle" id="instructions-toggle">
+                <span class="toggle-text">Cliquez pour voir les instructions</span>
+                <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+              <div class="instructions-content" id="instructions-content">
+                <ol class="instructions-list">
+                  {recipe.instructions.split('\n').filter(line => line.trim()).map(instruction => {
+                    // Retirer les numéros au début (1., 2., etc.)
+                    const cleanInstruction = instruction.replace(/^\d+\.\s*/, '');
+                    return <li>{cleanInstruction}</li>;
+                  })}
+                </ol>
+              </div>
+            </div>
+          ) : (
+            <p class="no-data">Instructions non disponibles</p>
+          )}
+        </section>
+      </div>
+      
+      {relatedRecipes.length > 0 && (
+        <aside class="related-recipes">
+          <h3>Related Recipes</h3>
+          <div class="related-grid">
+            {relatedRecipes.map(related => (
+              <a href={`/recettes/${related.id}`} class="related-card">
+                <div class="related-image">
+                  {related.image_url ? (
+                    <img src={related.image_url} alt={related.name} />
+                  ) : (
+                    <div class="no-image-small">?</div>
+                  )}
+                </div>
+                <div class="related-info">
+                  <h4>{related.name}</h4>
+                  <p class="related-meta">
+                    {related.prep_time + related.cook_time} min • {related.calories} kcal
+                  </p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </aside>
+      )}
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .recipe-detail {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+  
+  .recipe-hero {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    margin-bottom: 4rem;
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    border-radius: 24px;
+    overflow: hidden;
+    color: white;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+  
+  .hero-image {
+    height: 550px;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .hero-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .no-image {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 1.5rem;
+  }
+  
+  .hero-content {
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    background: linear-gradient(to right, rgba(30, 41, 59, 0.95), rgba(51, 65, 85, 0.9));
+  }
+  
+  .hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .hero-header h1 {
+    margin: 0;
+    font-size: 2.75rem;
+    line-height: 1.2;
+    background: linear-gradient(135deg, #fff 0%, #e2e8f0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .favorite-btn {
+    background: linear-gradient(135deg, #ff7a59, #ff3d81);
+    border: none;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(255, 61, 129, 0.3);
+  }
+  
+  .favorite-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 61, 129, 0.4);
+  }
+  
+  .favorite-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .favorite-count {
+    font-weight: 600;
+  }
+  
+  .rating {
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  .star {
+    font-size: 1.5rem;
+    color: #666;
+  }
+  
+  .star.filled {
+    color: #fbbf24;
+  }
+  
+  .author {
+    font-style: italic;
+    color: #aaa;
+    margin: 0;
+  }
+  
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .tag {
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+  }
+  
+  .tag.category {
+    background: linear-gradient(135deg, rgba(255, 122, 89, 0.3), rgba(255, 61, 129, 0.3));
+    border-color: rgba(255, 122, 89, 0.5);
+  }
+  
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+  }
+  
+  .stat:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-2px);
+  }
+  
+  .stat svg {
+    width: 32px;
+    height: 32px;
+    color: #ff7a59;
+  }
+  
+  .stat div {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .stat-label {
+    font-size: 0.875rem;
+    color: #aaa;
+  }
+  
+  .stat-value {
+    font-weight: 600;
+    font-size: 1.125rem;
+  }
+  
+  .description {
+    font-style: italic;
+    line-height: 1.6;
+    color: #ddd;
+    margin: 0;
+  }
+  
+  .recipe-content {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 3rem;
+  }
+  
+  .main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+  
+  .ingredients-section h2,
+  .instructions-section h2 {
+    font-size: 2rem;
+    margin: 0 0 1.5rem 0;
+    color: #1e293b;
+    font-weight: 700;
+    position: relative;
+    padding-bottom: 0.75rem;
+  }
+  
+  .ingredients-section h2::after,
+  .instructions-section h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: linear-gradient(90deg, #ff7a59, #ff3d81);
+    border-radius: 2px;
+  }
+  
+  .servings {
+    color: #6b7280;
+    font-style: italic;
+    margin: 0 0 1.5rem 0;
+  }
+  
+  .ingredients-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .ingredients-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    background: white;
+    border-radius: 12px;
+    border-left: 4px solid transparent;
+    background-image: linear-gradient(white, white), linear-gradient(135deg, #ff7a59, #ff3d81);
+    background-origin: padding-box, border-box;
+    background-clip: padding-box, border-box;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
+  }
+  
+  .ingredients-list li:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(255, 122, 89, 0.2);
+  }
+  
+  .ingredient-name {
+    font-weight: 500;
+    color: #111827;
+  }
+  
+  .ingredient-amount {
+    color: #6b7280;
+    font-weight: 600;
+  }
+  
+  /* Instructions Accordion Styles */
+  .instructions-accordion {
+    margin-top: 1rem;
+  }
+  
+  .instructions-toggle {
+    width: 100%;
+    padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, #ff7a59, #ff3d81);
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    font-size: 1.125rem;
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgba(255, 61, 129, 0.3);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .instructions-toggle::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.6s;
+  }
+  
+  .instructions-toggle:hover::before {
+    left: 100%;
+  }
+  
+  .instructions-toggle:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(255, 61, 129, 0.4);
+  }
+  
+  .instructions-toggle.active {
+    border-radius: 16px 16px 0 0;
+  }
+  
+  .toggle-text {
+    font-family: 'Poppins', sans-serif;
+    letter-spacing: 0.5px;
+  }
+  
+  .toggle-icon {
+    width: 24px;
+    height: 24px;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .instructions-toggle.active .toggle-icon {
+    transform: rotate(90deg);
+  }
+  
+  .instructions-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(to bottom, #ffffff, #f8fafc);
+    border-radius: 0 0 16px 16px;
+  }
+  
+  .instructions-content.active {
+    max-height: 3000px;
+    padding: 2rem;
+    border: 2px solid #ff7a59;
+    border-top: none;
+    box-shadow: 0 8px 24px rgba(255, 122, 89, 0.15);
+  }
+  
+  .instructions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    counter-reset: step-counter;
+  }
+  
+  .instructions-list li {
+    position: relative;
+    padding: 1.5rem 1.5rem 1.5rem 5rem;
+    background: white;
+    border-radius: 16px;
+    line-height: 1.8;
+    color: #475569;
+    font-size: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid #f1f5f9;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    counter-increment: step-counter;
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  
+  .instructions-content.active .instructions-list li {
+    animation: slideInFromLeft 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  
+  .instructions-content.active .instructions-list li:nth-child(1) { animation-delay: 0.1s; }
+  .instructions-content.active .instructions-list li:nth-child(2) { animation-delay: 0.2s; }
+  .instructions-content.active .instructions-list li:nth-child(3) { animation-delay: 0.3s; }
+  .instructions-content.active .instructions-list li:nth-child(4) { animation-delay: 0.4s; }
+  .instructions-content.active .instructions-list li:nth-child(5) { animation-delay: 0.5s; }
+  .instructions-content.active .instructions-list li:nth-child(6) { animation-delay: 0.6s; }
+  .instructions-content.active .instructions-list li:nth-child(7) { animation-delay: 0.7s; }
+  .instructions-content.active .instructions-list li:nth-child(8) { animation-delay: 0.8s; }
+  .instructions-content.active .instructions-list li:nth-child(9) { animation-delay: 0.9s; }
+  .instructions-content.active .instructions-list li:nth-child(10) { animation-delay: 1s; }
+  
+  @keyframes slideInFromLeft {
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  .instructions-list li:hover {
+    box-shadow: 0 8px 24px rgba(255, 122, 89, 0.15);
+    transform: translateY(-2px);
+    border-color: #ff7a59;
+  }
+  
+  .instructions-list li::before {
+    content: counter(step-counter);
+    position: absolute;
+    left: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #ff7a59, #ff3d81);
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.125rem;
+    box-shadow: 0 4px 12px rgba(255, 61, 129, 0.3);
+  }
+  
+  .no-data {
+    color: #9ca3af;
+    font-style: italic;
+  }
+  
+  .related-recipes h3 {
+    font-size: 1.75rem;
+    margin: 0 0 1.5rem 0;
+    color: #1e293b;
+    font-weight: 700;
+    position: relative;
+    padding-bottom: 0.75rem;
+  }
+  
+  .related-recipes h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 50px;
+    height: 4px;
+    background: linear-gradient(90deg, #ff7a59, #ff3d81);
+    border-radius: 2px;
+  }
+  
+  .related-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .related-card {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+    border: 1px solid #f1f5f9;
+  }
+  
+  .related-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(255, 122, 89, 0.2);
+    border-color: #ff7a59;
+  }
+  
+  .related-image {
+    width: 90px;
+    height: 90px;
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .related-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .no-image-small {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+  }
+  
+  .related-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .related-info h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #111827;
+  }
+  
+  .related-meta {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #6b7280;
+  }
+  
+  @media (max-width: 1024px) {
+    .recipe-hero {
+      grid-template-columns: 1fr;
+    }
+    
+    .hero-image {
+      height: 350px;
+    }
+    
+    .hero-content {
+      padding: 2rem;
+    }
+    
+    .recipe-content {
+      grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  @media (max-width: 640px) {
+    .recipe-detail {
+      padding: 1rem 0.5rem;
+    }
+    
+    .hero-header h1 {
+      font-size: 1.75rem;
+    }
+    
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .hero-content {
+      padding: 1.5rem;
+    }
+  }
+</style>
+
+<script>
+  // Toggle instructions accordion with animation
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggleBtn = document.getElementById('instructions-toggle');
+    const content = document.getElementById('instructions-content');
+    
+    if (toggleBtn && content) {
+      toggleBtn.addEventListener('click', () => {
+        toggleBtn.classList.toggle('active');
+        content.classList.toggle('active');
+        
+        // Update button text
+        const toggleText = toggleBtn.querySelector('.toggle-text');
+        if (content.classList.contains('active')) {
+          toggleText.textContent = 'Masquer les instructions';
+        } else {
+          toggleText.textContent = 'Cliquez pour voir les instructions';
+        }
+      });
+    }
+  });
+</script>

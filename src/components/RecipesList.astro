@@ -1,152 +1,212 @@
 ---
-// Pas de fetch côté serveur, tout se passe côté client
 ---
 
 <section class="recipes-list">
   <div class="rl-header">
-    <div class="rl-title">
-      <h2 class="rl-headline">
-        Des recettes simples, spécialement pour vous
-      </h2>
+    <div class="rl-controls">
+      <label class="rl-search">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM10 14a4 4 0 110-8 4 4 0 010 8z"/></svg>
+        <input id="recipes-search" type="search" placeholder="Rechercher une recette..." aria-label="Rechercher" />
+      </label>
+
+      <div class="rl-filter">
+        <label for="recipes-category" class="visually-hidden">Filtrer par catégorie</label>
+        <select id="recipes-category" aria-label="Catégorie">
+          <option value="">Toutes les catégories</option>
+        </select>
+      </div>
     </div>
   </div>
 
-  <p class="rl-empty" id="loading-message">Chargement des recettes...</p>
-  <p class="rl-empty" id="error-message" style="display: none;"></p>
-  
-  <div class="rl-grid" role="list" id="recipes-grid" style="display: none;">
-    <!-- Les recettes seront insérées ici par JavaScript -->
+  <div id="recipes-grid" class="rl-grid" role="list" aria-live="polite">
+    <!-- cartes injectées ici -->
+  </div>
+
+  <div id="loading-indicator" class="rl-loading-indicator" style="display: none;">
+    <p>Chargement...</p>
+  </div>
+
+  <div id="end-message" class="rl-end-message" style="display: none;">
+    <p>Vous avez atteint la fin des recettes 🍽️</p>
   </div>
 </section>
 
+<style is:global>
+  /* Styles must be global because cards are injected via JS without Astro scope attributes */
+  :root{
+    --bg:#ffffff; --muted:#6b7280; --card-bg:#fff; --accent:#f97316; --soft:#f3f4f6; --text:#111827;
+  }
+  .recipes-list{ padding:2rem 1rem; max-width:1400px; margin:0 auto; }
+  .rl-header{ display:flex; justify-content:center; align-items:center; margin-bottom:2.5rem; }
+
+  .rl-controls{ display:flex; gap:1rem; align-items:center; }
+  .rl-search{ display:flex; align-items:center; gap:0.75rem; background:linear-gradient(135deg,#ff7a59,#ff3d81); padding:0.75rem 1.25rem; border-radius:12px; border:none; box-shadow:0 4px 12px rgba(255,61,129,0.3); transition:all 0.3s ease; }
+  .rl-search:hover{ transform:translateY(-2px); box-shadow:0 6px 16px rgba(255,61,129,0.4); }
+  .rl-search:focus-within{ box-shadow:0 0 0 4px rgba(255,61,129,0.3); }
+  .rl-search .icon{ width:20px; height:20px; color:white; flex-shrink:0; }
+  .rl-search input{ border:0; outline:0; background:transparent; padding:0.25rem 0; min-width:250px; color:white; font-size:1rem; font-weight:500; }
+  .rl-search input::placeholder{ color:rgba(255,255,255,0.85); }
+  .rl-search input::-webkit-search-cancel-button{ filter:invert(1); }
+
+  .rl-filter select{ padding:0.75rem 1.25rem; border-radius:12px; border:2px solid #ff7a59; background:white; color:#ff3d81; font-weight:600; font-size:1rem; cursor:pointer; transition:all 0.3s ease; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+  .rl-filter select:hover{ border-color:#ff3d81; box-shadow:0 4px 12px rgba(255,61,129,0.2); transform:translateY(-2px); }
+  .rl-filter select:focus{ outline:none; box-shadow:0 0 0 4px rgba(255,61,129,0.2); }
+
+  .rl-grid{ display:grid; gap:1.5rem; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  @media (max-width:1000px){ .rl-grid{ gap:1.25rem; } }
+  @media (max-width:600px){ .rl-grid{ grid-template-columns: 1fr; } .rl-controls{ flex-direction:column; width:100%; } .rl-search{ width:100%; } .rl-search input{ min-width:auto; width:100%; } .rl-filter{ width:100%; } .rl-filter select{ width:100%; } }
+
+  .card{ display:flex; flex-direction:column; border-radius:16px; overflow:hidden; background:var(--card-bg); box-shadow:0 8px 24px rgba(15,23,42,0.08); transition:all 0.3s ease; text-decoration:none; color:inherit; border:1px solid rgba(0,0,0,0.05); }
+  .card:hover{ transform:translateY(-8px) scale(1.02); box-shadow:0 20px 48px rgba(255,61,129,0.15); border-color:rgba(255,122,89,0.3); }
+  .card-media{ position:relative; height:200px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); }
+  .card-media img{ width:100%; height:100%; object-fit:cover; display:block }
+  .card-body{ padding:0.9rem 1rem 1.1rem; display:flex; flex-direction:column; gap:0.45rem }
+  .card-title{ margin:0; font-size:1.05rem; color:var(--text) }
+  .card-meta{ color:var(--muted); font-size:0.88rem }
+  .chip{ display:inline-block; padding:0.25rem 0.5rem; border-radius:999px; background:#fff6f1; color:var(--accent); font-size:0.78rem; border:1px solid rgba(249,115,22,0.08) }
+  .card-desc{ color:#374151; font-size:0.95rem }
+  .card-stats{ margin-top:auto; display:flex; gap:0.5rem; font-size:0.82rem; color:var(--muted) }
+
+  .rl-loading-indicator, .rl-end-message{ text-align:center; padding:2rem 0; color:var(--muted) }
+  .rl-loading-indicator p, .rl-end-message p{ margin:0 }
+
+  .visually-hidden{ position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap }
+</style>
+
 <script type="module">
   const API_URL = 'https://gourmet.cours.quimerch.com/recipes';
-  
-  async function loadRecipes() {
-    const loadingEl = document.getElementById('loading-message');
-    const errorEl = document.getElementById('error-message');
-    const gridEl = document.getElementById('recipes-grid');
-    
+  const pageSize = 12; // charger 12 recettes à la fois
+  let page = 1;
+  let isLoading = false;
+  let hasMoreRecipes = true;
+  let currentCategory = '';
+  let currentSearch = '';
+  let searchTimeout = null;
+  let allRecipes = []; // Pour le filtrage côté client
+
+  const grid = document.getElementById('recipes-grid');
+  const loadingIndicator = document.getElementById('loading-indicator');
+  const endMessage = document.getElementById('end-message');
+  const categorySelect = document.getElementById('recipes-category');
+  const searchInput = document.getElementById('recipes-search');
+
+  async function fetchAllRecipes() {
     try {
-      const res = await fetch(`${API_URL}?limit=9`, {
-        headers: { Accept: 'application/json' },
+      const res = await fetch(`${API_URL}?limit=1000`, { 
+        headers: { Accept: 'application/json' } 
       });
-      
-      if (!res.ok) throw new Error('Réponse réseau non valide');
-      
-      const recipes = await res.json();
-      
-      if (loadingEl) loadingEl.style.display = 'none';
-      
-      if (recipes.length === 0) {
-        if (errorEl) {
-          errorEl.textContent = 'Aucune recette trouvée.';
-          errorEl.style.display = 'block';
-        }
-        return;
+      if (res.ok) {
+        allRecipes = await res.json();
+        populateCategories(allRecipes);
+        applyFilters();
       }
-      
-      if (gridEl) {
-        gridEl.innerHTML = recipes.map(r => `
-          <article class="card" role="listitem" data-id="${r.id}">
-            <div class="card-media" aria-hidden="true">
-              ${r.image_url 
-                ? `<img src="${r.image_url}" alt="${r.name}" loading="lazy" decoding="async" />`
-                : `<div class="fallback">Image manquante</div>`
-              }
-            </div>
-            <div class="card-body">
-              <div class="chip">${r.category || 'Autre'}</div>
-              <h3 class="card-title">${r.name}</h3>
-              <p class="card-desc">
-                ${(r.description || '').slice(0, 140)}${r.description && r.description.length > 140 ? '…' : ''}
-              </p>
-              <div class="card-stats">
-                <span>${r.servings || 0} pers</span>
-                <span>• ${r.cost || 0}€</span>
-                <span>• Prépa ${r.prep_time || 0}m</span>
-                <span>• Cuisson ${r.cook_time || 0}m</span>
-                <span>• 🔥 ${r.calories || 0}</span>
-              </div>
-            </div>
-          </article>
-        `).join('');
-        gridEl.style.display = 'grid';
-      }
-    } catch (err) {
-      console.error(err);
-      if (loadingEl) loadingEl.style.display = 'none';
-      if (errorEl) {
-        errorEl.textContent = 'Impossible de charger les recettes pour le moment.';
-        errorEl.style.display = 'block';
-      }
+    } catch(err) {
+      console.error('Error fetching recipes:', err);
+      grid.innerHTML = '<p class="rl-empty">Impossible de charger les recettes.</p>';
     }
   }
-  
-  // Charger les recettes au chargement de la page
-  loadRecipes();
+
+  function applyFilters() {
+    isLoading = true;
+    loadingIndicator.style.display = 'block';
+    grid.innerHTML = '';
+    
+    // Filtrer les recettes
+    let filtered = allRecipes;
+    
+    // Filtre par catégorie
+    if (currentCategory) {
+      filtered = filtered.filter(r => r.category === currentCategory);
+    }
+    
+    // Filtre par recherche (nom, description, catégorie)
+    if (currentSearch) {
+      const searchLower = currentSearch.toLowerCase();
+      filtered = filtered.filter(r => {
+        return (r.name && r.name.toLowerCase().includes(searchLower)) ||
+               (r.description && r.description.toLowerCase().includes(searchLower)) ||
+               (r.category && r.category.toLowerCase().includes(searchLower));
+      });
+    }
+    
+    // Pagination côté client
+    page = 1;
+    displayRecipes(filtered);
+    
+    isLoading = false;
+    loadingIndicator.style.display = 'none';
+  }
+
+  function displayRecipes(recipes) {
+    if (!recipes || recipes.length === 0) {
+      grid.innerHTML = '<p class="rl-empty">Aucune recette trouvée.</p>';
+      endMessage.style.display = 'none';
+      hasMoreRecipes = false;
+      return;
+    }
+    
+    // Afficher toutes les recettes filtrées (ou implémenter une pagination)
+    const html = recipes.map(r => (`
+      <a href="/recettes/${escapeHtml(r.id)}" class="card" role="listitem" data-id="${escapeHtml(r.id)}">
+        <div class="card-media">${r.image_url ? `<img src="${escapeHtml(r.image_url)}" alt="${escapeHtml(r.name)}">` : `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted)">Image manquante</div>`}</div>
+        <div class="card-body">
+          <h3 class="card-title">${escapeHtml(r.name)}</h3>
+          <div class="card-meta"><span class="chip">${escapeHtml(r.category||'Autre')}</span> <span style="margin-left:6px">${r.servings||0} pers • ${r.cost||0}€</span></div>
+          <p class="card-desc">${escapeHtml((r.description||'').slice(0,160))}${(r.description&&r.description.length>160)?'…':''}</p>
+          <div class="card-stats"><span>Prépa ${r.prep_time||0}m</span><span>Cuisson ${r.cook_time||0}m</span><span>🔥 ${r.calories||0}</span></div>
+        </div>
+      </a>
+    `)).join('');
+    
+    grid.innerHTML = html;
+    
+    // Afficher le message de fin
+    endMessage.style.display = 'block';
+    endMessage.innerHTML = `<p>${recipes.length} recette${recipes.length > 1 ? 's' : ''} trouvée${recipes.length > 1 ? 's' : ''}</p>`;
+    hasMoreRecipes = false;
+  }
+
+  function populateCategories(recipes){
+    const categories = new Set();
+    recipes.forEach(r => {
+      if (r.category) categories.add(r.category);
+    });
+    
+    // Vider et repeupler les catégories
+    categorySelect.innerHTML = '<option value="">Toutes les catégories</option>';
+    
+    Array.from(categories).sort().forEach(cat => {
+      const option = document.createElement('option');
+      option.value = cat;
+      option.textContent = cat;
+      categorySelect.appendChild(option);
+    });
+  }
+
+  // Event listeners
+  categorySelect.addEventListener('change', e => {
+    currentCategory = e.target.value || '';
+    applyFilters();
+  });
+
+  searchInput.addEventListener('input', e => {
+    currentSearch = e.target.value.trim();
+    
+    // Debounce pour éviter trop de filtres
+    if (searchTimeout) clearTimeout(searchTimeout);
+    
+    searchTimeout = setTimeout(() => {
+      applyFilters();
+    }, 300); // 300ms de délai
+  });
+
+  function escapeHtml(str){
+    return String(str||'').replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]
+    })
+  }
+
+  // Initial load - charger toutes les recettes
+  fetchAllRecipes();
 </script>
 
-<style is:global>
-:root{
-  --muted:#6b7280;
-  --card-bg:#f7f7f7;
-}
-
-  .recipes-list{ padding:clamp(1.5rem, 3vw, 2.5rem); max-width:1200px; margin:0 auto; }
-.rl-header{ display:flex; flex-wrap:wrap; gap:1rem; justify-content:center; align-items:center; margin-bottom:1.25rem; text-align:center; }
-.rl-headline{ margin:0.35rem 0 0; font-size:clamp(1.9rem, 3vw, 2.6rem); color:#0f172a; line-height:1.15; font-weight:800; letter-spacing:-0.01em; }
-
-  .rl-grid{ display:grid; gap:1rem; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }
-
-  .card{
-    display:flex;
-    flex-direction:column;
-    gap:0.65rem;
-    border-radius:16px;
-    overflow:hidden;
-    background:var(--card-bg);
-    color:#111827;
-    box-shadow:
-      0 14px 30px rgba(0,0,0,0.08),
-      0 6px 12px rgba(0,0,0,0.06);
-    min-height:100%;
-  }
-  .card-media{
-    position:relative;
-    width:100%;
-    aspect-ratio:4/3;
-    background:linear-gradient(135deg,#eceff4,#e5e7eb);
-    overflow:hidden;
-    display:block;
-  }
-  .card-media img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .card-media .fallback{
-    width:100%;
-    height:100%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color:#6b7280;
-    font-size:0.9rem;
-    padding:0.5rem;
-    text-align:center;
-    background:linear-gradient(135deg, #e5e7eb, #f3f4f6);
-  }
-
-.card-body{ display:flex; flex-direction:column; gap:0.45rem; padding:0 1rem 1.1rem; }
-.chip{ display:inline-flex; align-items:center; gap:0.35rem; padding:0.35rem 0.65rem; border-radius:999px; background:#fff3eb; color:#c2410c; font-size:0.8rem; border:1px solid rgba(249,115,22,0.2); width:max-content; }
-.card-title{ margin:0; font-size:1.1rem; line-height:1.3; color:#0f172a; }
-.card-desc{ margin:0; color:#374151; font-size:0.93rem; line-height:1.45; }
-.card-stats{ display:flex; gap:0.45rem; flex-wrap:wrap; font-size:0.85rem; color:#6b7280; }
-
-  .rl-empty{ margin:1rem 0; color:var(--muted); font-weight:600; }
-
-  @media (max-width:768px){
-    .card{ box-shadow:0 8px 25px rgba(15,23,42,0.16); }
-  }
-</style>
