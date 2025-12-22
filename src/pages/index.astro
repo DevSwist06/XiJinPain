@@ -11,3 +11,36 @@ import Layout from '../layouts/Layout.astro';
     <HeroBanner />
     <RecipesList />
 </Layout>
+
+<script type="module">
+    const SCROLL_KEY = 'recipes-scroll-y';
+    if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+    }
+
+    // Restore scroll position if we have one
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved) {
+        const y = Number(saved);
+        if (!Number.isNaN(y)) {
+            requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'auto' }));
+        }
+    }
+
+    let ticking = false;
+    const persist = () => {
+        sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
+        ticking = false;
+    };
+
+    window.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(persist);
+            ticking = true;
+        }
+    }, { passive: true });
+
+    window.addEventListener('beforeunload', () => {
+        sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
+    });
+</script>
