@@ -6,7 +6,9 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up",
+    "docker:prod": "docker compose up --build"
   },
   "dependencies": {
     "astro": "^5.16.4"
