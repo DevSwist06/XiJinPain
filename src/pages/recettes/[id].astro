@@ -72,6 +72,33 @@ export async function getStaticPaths() {
 const { id } = Astro.params;
 const API_URL = 'https://gourmet.cours.quimerch.com';
 
+// Helper function for retries
+async function fetchWithRetry(url, retries = 3, delay = 1000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
+      if (res.ok || attempt === retries) {
+        return res;
+      }
+      
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 // Fetch recipe details
 let recipe = null;
 let ingredients = [];
@@ -79,18 +106,14 @@ let relatedRecipes = [];
 let error = null;
 
 try {
-  const recipeRes = await fetch(`${API_URL}/recipes/${id}`, {
-    headers: { Accept: 'application/json' }
-  });
+  const recipeRes = await fetchWithRetry(`${API_URL}/recipes/${id}`);
   
   if (recipeRes.ok) {
     recipe = await recipeRes.json();
     
     // Fetch ingredients for this recipe
     try {
-      const ingredientsRes = await fetch(`${API_URL}/recipes/${id}/ingredients`, {
-        headers: { Accept: 'application/json' }
-      });
+      const ingredientsRes = await fetchWithRetry(`${API_URL}/recipes/${id}/ingredients`);
       if (ingredientsRes.ok) {
         ingredients = await ingredientsRes.json();
       }
@@ -101,9 +124,7 @@ try {
     // Fetch related recipes (same category)
     if (recipe.category) {
       try {
-        const relatedRes = await fetch(`${API_URL}/recipes?category=${recipe.category}&limit=4`, {
-          headers: { Accept: 'application/json' }
-        });
+        const relatedRes = await fetchWithRetry(`${API_URL}/recipes?category=${recipe.category}&limit=4`);
         if (relatedRes.ok) {
           const allRelated = await relatedRes.json();
           relatedRecipes = allRelated.filter(r => r.id !== recipe.id).slice(0, 3);
