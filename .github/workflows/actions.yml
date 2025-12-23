@@ -27,6 +27,7 @@ jobs:
         with:
           context: .
           push: true
+          no-cache: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/archiweb:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/archiweb:${{ github.sha }}

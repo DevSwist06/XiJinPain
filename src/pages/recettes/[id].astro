@@ -5,21 +5,30 @@ export async function getStaticPaths() {
   const API_URL = 'https://gourmet.cours.quimerch.com';
   
   try {
+    console.log('[BUILD] Fetching recipes from', `${API_URL}/recipes?limit=1000`);
     // Fetch all recipes to generate static paths (increase limit to cover entire catalog)
     const res = await fetch(`${API_URL}/recipes?limit=1000`, {
       headers: { Accept: 'application/json' }
     });
     
+    console.log('[BUILD] API Response status:', res.status, res.statusText);
+    
     if (res.ok) {
       const recipes = await res.json();
+      console.log('[BUILD] Generated paths for', recipes.length, 'recipes');
       return recipes.map(recipe => ({
         params: { id: String(recipe.id) }
       }));
+    } else {
+      console.error('[BUILD] API returned non-OK status:', res.status, res.statusText);
+      const text = await res.text();
+      console.error('[BUILD] Response body:', text.substring(0, 500));
     }
   } catch (err) {
-    console.error('Error fetching recipes for static paths:', err);
+    console.error('[BUILD] Error fetching recipes for static paths:', err);
   }
   
+  console.warn('[BUILD] Returning empty paths array!');
   return [];
 }
 
