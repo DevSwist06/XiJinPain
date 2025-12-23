@@ -3,32 +3,69 @@ import Layout from '../../layouts/Layout.astro';
 
 export async function getStaticPaths() {
   const API_URL = 'https://gourmet.cours.quimerch.com';
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 2000; // 2 seconds
+  
+  async function fetchWithRetry(url, retries = MAX_RETRIES) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`[BUILD] Attempt ${attempt}/${retries}: Fetching ${url}`);
+        
+        // Fetch with timeout (30 seconds)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        const res = await fetch(url, {
+          headers: { Accept: 'application/json' },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        console.log(`[BUILD] Response status: ${res.status} ${res.statusText}`);
+        
+        if (res.ok) {
+          return res;
+        }
+        
+        // If not ok, log and retry
+        const text = await res.text();
+        console.error(`[BUILD] API returned ${res.status}: ${text.substring(0, 200)}`);
+        
+        if (attempt < retries) {
+          console.log(`[BUILD] Retrying in ${RETRY_DELAY}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        }
+      } catch (err) {
+        console.error(`[BUILD] Attempt ${attempt} failed:`, err instanceof Error ? err.message : String(err));
+        
+        if (attempt < retries) {
+          console.log(`[BUILD] Retrying in ${RETRY_DELAY}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        }
+      }
+    }
+    
+    throw new Error(`Failed to fetch ${url} after ${retries} attempts`);
+  }
   
   try {
-    console.log('[BUILD] Fetching recipes from', `${API_URL}/recipes?limit=1000`);
-    // Fetch all recipes to generate static paths (increase limit to cover entire catalog)
-    const res = await fetch(`${API_URL}/recipes?limit=1000`, {
-      headers: { Accept: 'application/json' }
-    });
+    console.log('[BUILD] Starting recipe routes generation');
+    console.log('[BUILD] API URL:', API_URL);
     
-    console.log('[BUILD] API Response status:', res.status, res.statusText);
+    const res = await fetchWithRetry(`${API_URL}/recipes?limit=1000`);
     
     if (res.ok) {
       const recipes = await res.json();
-      console.log('[BUILD] Generated paths for', recipes.length, 'recipes');
+      console.log(`[BUILD] ✓ Successfully generated ${recipes.length} recipe routes`);
       return recipes.map(recipe => ({
         params: { id: String(recipe.id) }
       }));
-    } else {
-      console.error('[BUILD] API returned non-OK status:', res.status, res.statusText);
-      const text = await res.text();
-      console.error('[BUILD] Response body:', text.substring(0, 500));
     }
   } catch (err) {
-    console.error('[BUILD] Error fetching recipes for static paths:', err);
+    console.error('[BUILD] Fatal error:', err instanceof Error ? err.message : String(err));
   }
   
-  console.warn('[BUILD] Returning empty paths array!');
+  console.warn('[BUILD] ⚠️ No recipe routes generated - API fetch failed');
   return [];
 }
 
